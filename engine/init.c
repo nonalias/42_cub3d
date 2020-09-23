@@ -1,10 +1,16 @@
-#include "../cub3d.h"
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   init.c                                             :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: taehkim <marvin@42.fr>                     +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2020/09/17 20:20:19 by taehkim           #+#    #+#             */
+/*   Updated: 2020/09/17 20:20:22 by taehkim          ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
 
-void	win_init(t_game *game)
-{
-	game->win.width = WIN_WIDTH;
-	game->win.height = WIN_HEIGHT;
-}
+#include "../cub3d.h"
 
 void	game_init(t_game *game)
 {
@@ -13,23 +19,25 @@ void	game_init(t_game *game)
 	i = 0;
 	while (i < 300)
 		game->key_check[i++] = 0;
-	game->map.xlength = MAP_XLENGTH;
-	game->map.ylength = MAP_YLENGTH;
 	game->mlx_ptr = mlx_init();
-	game->win_ptr = mlx_new_window(game->mlx_ptr, game->win.width, game->win.height, "ModyHoon");
-	game->tile_xsize = game->win.width / game->map.xlength;
-	game->tile_ysize = game->win.height / game->map.ylength;
+	game->win_ptr = mlx_new_window(game->mlx_ptr, game->win.width,
+		game->win.height, "ModyHoon");
+	game->tile_xsize = game->win.width / game->map.columns;
+	game->tile_ysize = game->win.height / game->map.rows;
+	game->common_tsize = 20;
 	game->seek_angle = 66;
 	game->seek_distance = game->win.width / 3;
+	game->ray_term = (1000 * 0.065) / game->win.width;
 }
 
 void	player_init(t_game *game)
 {
-	game->player.cur_x = game->win.width / 2;
-	game->player.cur_y = game->win.height / 2;
-	game->player.rot_angle = 0;
-	game->player.rot_speed = 4;
-	game->player.move_speed = 4;
+	double	option;
+
+	option = (1.7 * game->map.rows * game->map.columns *
+		game->common_tsize) / (29 * 16 * 20);
+	game->player.move_speed = option;
+	game->player.rot_speed = 6;
 }
 
 void	ray_init(t_game *game)
@@ -48,18 +56,13 @@ void	ray_init(t_game *game)
 	game->ray.down_facing = 0;
 	game->ray.left_facing = 0;
 	game->ray.right_facing = 0;
-	game->ray.nexthorztouchx = 0;
-	game->ray.nexthorztouchy = 0;
-	game->ray.nextverttouchx = 0;
-	game->ray.nextverttouchy = 0;
+	game->ray.angle = 0;
 }
 
 void	init(t_game *game)
 {
-	win_init(game);
 	game_init(game);
 	player_init(game);
 	ray_init(game);
 	wall_init(game);
-	flag_init(game);
 }

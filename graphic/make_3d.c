@@ -1,107 +1,98 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   make_3d.c                                          :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: taehkim <marvin@42.fr>                     +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2020/09/18 23:03:42 by taehkim           #+#    #+#             */
+/*   Updated: 2020/09/18 23:23:52 by taehkim          ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "../cub3d.h"
 
-void	check_cardinal(t_game *game)
+void	make_wall_by_image2(t_game *game, t_pos pos[2])
 {
-	if (game->wall.is_x_or_y == X_SIDE)
+	int		color;
+	double	tex_start;
+
+	tex_start = ((game->temp - game->wall.realheight) / 2.0) /
+			game->temp * TEX_HEIGHT;
+	while (game->tex.y_iter < pos[1].y)
 	{
-		if (game->wall.angle > 90 && game->wall.angle < 270)
-			game->wall.cardinal = WEST;
-		else
-			game->wall.cardinal = EAST;
-	}
-	else if (game->wall.is_x_or_y == Y_SIDE)
-	{
-		if (game->wall.angle > 0 && game->wall.angle < 180)
-			game->wall.cardinal = SOUTH;
-		else
-			game->wall.cardinal = NORTH;
+		game->tex.tex_y = (game->tex.y_iter - pos[0].y) /
+			(pos[1].y - pos[0].y) * TEX_HEIGHT;
+		if (game->temp > game->win.height)
+			game->tex.tex_y = ((game->tex.y_iter / (double)game->win.height) *
+					(game->wall.realheight / game->temp) * (double)TEX_HEIGHT)
+				+ tex_start;
+		color = game->tex.img[game->wall.cardinal]
+			.data[game->tex.tex_y * TEX_HEIGHT + game->tex.tex_x];
+		game->img.data[to_coord(game, pos[0].x, game->tex.y_iter)] =
+			shading(game->wall.distance, color);
+		game->tex.y_iter += 1;
 	}
 }
 
-void	shopping_draw(t_game *game, double lineheight)
+void	make_wall_by_image(t_game *game, t_pos pos[2])
 {
-	int	drawstart = game->line.origin_y;
-	int	drawend = game->line.target_y;
-	int	texnum = game->wall.cardinal;
-	/*
-	double	wallX = game->wall.x;
-	wallX -= floor(wallX);
-
-	int texX = (int)(wallX * (double)TEX_WIDTH);
-	texX = TEX_WIDTH - texX - 1;
-
-	double step = 1.0 * TEX_HEIGHT / lineheight;
-	double texPos = (drawstart - game->win.height / 2 + lineheight / 2) * step;
-	//printf("texPos : %f\n", texPos);
-	*/
-	double y = drawstart;
-	if (drawend > game->win.height)
-		drawend = game->win.height;
-	if (y < 0)
-		y = 0;
-	int texX = (int)(game->wall.x * TEX_WIDTH / game->win.width);
-	while (y < drawend)
+	if (game->wall.what_hit == VERT_HIT)
+		game->tex.tex_x = (int)(fmod(game->wall.y, game->common_tsize) /
+				game->common_tsize * TEX_HEIGHT);
+	else
+		game->tex.tex_x = (int)(fmod(game->wall.x, game->common_tsize) /
+				game->common_tsize * TEX_WIDTH);
+	if (game->wall.cardinal == WEST)
+		game->tex.tex_x = TEX_HEIGHT - game->tex.tex_x;
+	if (game->wall.cardinal == SOUTH)
+		game->tex.tex_x = TEX_WIDTH - game->tex.tex_x;
+	game->temp = game->wall.realheight;
+	if (game->wall.realheight >= game->win.height)
 	{
-		//int texY = (int)texPos & (TEX_HEIGHT - 1);
-		// height : wally = texheight : texY
-		// wally * texwidith / height
-		int texY = (int)((y - drawstart) * TEX_HEIGHT / (drawend - drawstart));
-		//texPos += step;
-		//printf("texnum : %d\n", texnum);
-		int color = game->tex.texture[texnum][TEX_HEIGHT * texY + texX];
-		// 어둡게 하는 코드
-		if (game->wall.is_x_or_y == X_SIDE)
-			color = (color >> 1) & 8355711;
-		game->img.data[to_coord(game, game->line.origin_x, y)] = color;
-		y += 1;
+		game->wall.realheight = game->win.height - 1;
+		pos[0].y = 0;
+		pos[1].y = game->win.height;
 	}
+	game->tex.y_iter = pos[0].y;
+	if (game->tex.y_iter < 0)
+		game->tex.y_iter = 0;
+	make_wall_by_image2(game, pos);
 }
 
-//TODO: rader도 seekangle부분 수정하기
+void	make_wall(t_game *game)
+{
+	t_pos	pos[2];
+
+	set_pos(&pos[0], (game->ray.angle + game->seek_angle / 2) *
+			game->win.width / game->seek_angle,
+			(game->win.height / 2 - (game->wall.realheight / 2)));
+	set_pos(&pos[1], pos[0].x,
+			game->win.height / 2 + (game->wall.realheight / 2));
+	check_cardinal(game);
+	make_wall_by_image(game, pos);
+}
+
 void	make_3d(t_game *game)
 {
-	double	distance;
-	double	wallheight;
-	double	i;
+	double	dist_opt;
 
-	i = game->seek_angle / 2 * -1;
-	while (i < game->seek_angle / 2)
-	{ 
-		game->line.origin_x = game->player.cur_x;
-		game->line.origin_y = game->player.cur_y;
-		double	razer_angle = game->player.rot_angle + i;
-		game->line.target_x = game->player.cur_x + game->seek_distance * cos(TO_RADIAN(razer_angle));
-		game->line.target_y = game->player.cur_y + game->seek_distance * sin(TO_RADIAN(razer_angle));
-		game->wall.angle = razer_angle;
-		if (game->wall.angle < 0)
-			game->wall.angle += 360;
-		else if (game->wall.angle > 360)
-			game->wall.angle -= 360;
-		distance = get_wall_x_y(game) * cos(TO_RADIAN(i));
-		double	distanceprojectionplane = (game->win.width / 2) / tan(M_PI / 180 * game->seek_angle / 2);
-		double	wallstripheight = (game->tile_ysize / distance) * distanceprojectionplane;
-		game->line.origin_x = ((i + game->seek_angle / 2) * game->win.width / game->seek_angle);
-		game->line.origin_y = 0;
-		game->line.target_x = game->line.origin_x;
-		game->line.target_y = game->win.height / 2 - (wallstripheight / 2);
-		game->line.color = 0x50bcdf;
-		make_line(game);
-
-		game->line.origin_x = ((i + game->seek_angle / 2) * game->win.width / game->seek_angle);
-		game->line.origin_y = game->win.height / 2 + (wallstripheight / 2) - 1;
-		game->line.target_x = game->line.origin_x;
-		game->line.target_y = game->win.height;
-		game->line.color = 0xf0ecdd;
-		make_line(game);
-
-		game->line.origin_x = ((i + game->seek_angle / 2) * game->win.width / game->seek_angle);
-		game->line.origin_y = game->win.height / 2 - (wallstripheight / 2);
-		game->line.target_x = game->line.origin_x;
-		game->line.target_y = game->win.height / 2 + (wallstripheight / 2);
-		//game->line.color = 0xaaaaaa - 0x010101 * (int)(0xaaaaaa / game->seek_distance * distance);
-		check_cardinal(game);
-		shopping_draw(game, wallstripheight);
-		//make_line(game);
-		i += 0.06;
+	game->ray.angle = -1 * game->seek_angle / 2;
+	while (game->ray.angle < game->seek_angle / 2)
+	{
+		sprite_init(game);
+		game->wall.angle = game->player.rot_angle + game->ray.angle;
+		specify_angle(&game->wall.angle);
+		game->wall.distance = shoot_ray(game) *
+			cos(to_radian(game->ray.angle));
+		dist_opt = (game->win.width / 2) /
+			tan(to_radian(game->seek_angle / 2));
+		game->wall.realheight = (game->common_tsize /
+				game->wall.distance) * dist_opt;
+		make_ceil(game);
+		make_floor(game);
+		make_wall(game);
+		make_sprite(game);
+		game->ray.angle += game->ray_term;
 	}
 }
